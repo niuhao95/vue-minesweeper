@@ -5,12 +5,12 @@ interface BlockState {
   y: number
   revealed: boolean
   mine?: boolean
-  flagged?: boolean
+  flagged: boolean
   adjacentMines: number
 }
 
-const WIDTH = 10
-const HEIGHT = 10
+const WIDTH = 5
+const HEIGHT = 5
 const state = reactive(
   Array.from({ length: HEIGHT }, (_, y) =>
     Array.from({ length: WIDTH }, (_, x): BlockState =>
@@ -19,6 +19,7 @@ const state = reactive(
         y,
         adjacentMines: 0,
         revealed: false,
+        flagged: false,
       }),
     )),
 )
@@ -81,8 +82,13 @@ function expendZero(block: BlockState) {
 }
 
 let mineGenerated = false
-const dev = true
+const dev = false
 
+function onRightClick(block: BlockState) {
+  if (block.revealed)
+    return
+  block.flagged = !block.flagged
+}
 function onClick(block: BlockState) {
   if (!mineGenerated) {
     generateMines(block)
@@ -96,8 +102,10 @@ function onClick(block: BlockState) {
 }
 
 function getBlockClass(block: BlockState) {
-  if (!block.revealed)
+  if (block.flagged)
     return 'bg-gray-500/10'
+  if (!block.revealed)
+    return 'bg-gray-500/10 hover:bg-gray-500/20'
 
   return block.mine
     ? 'bg-red-500/50'
@@ -114,6 +122,20 @@ function getSiblings(block: BlockState) {
   }).filter(Boolean) as BlockState[]
 }
 
+watchEffect(checGameState)
+
+function checGameState() {
+  if (!mineGenerated)
+    return
+
+  const blocks = state.flat()
+  if (blocks.every((block: BlockState) => block.flagged || block.revealed)) {
+    if (blocks.some((block: BlockState) => block.flagged && !block.mine))
+      alert('you cheat!')
+    else
+      alert('you win')
+  }
+}
 </script>
 
 <template>
@@ -131,12 +153,15 @@ function getSiblings(block: BlockState) {
           flex="~"
           items-center justify-center
           w-10 h-10 m="0.5"
-          hover="bg-gray/10"
           border="1 gray-400/10"
           :class="getBlockClass(block)"
+          @contextmenu.prevent="onRightClick(block)"
           @click="onClick(block)"
         >
-          <template v-if="block.revealed || dev">
+          <div v-if="block.flagged">
+            🚩
+          </div>
+          <template v-else-if="block.revealed || dev">
             <div v-if="block.mine">
               💣
             </div>
